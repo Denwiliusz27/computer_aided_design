@@ -1,0 +1,293 @@
+import bpy
+import math
+import bmesh
+import random
+import time
+
+def add_mesh(name, verts, faces, edges=None, col_name="Collection"):    
+    if edges is None:
+        edges = []
+    mesh = bpy.data.meshes.new(name)
+    obj = bpy.data.objects.new(mesh.name, mesh)
+    col = bpy.data.collections[col_name]
+    col.objects.link(obj)
+    bpy.context.view_layer.objects.active = obj
+    mesh.from_pydata(verts, edges, faces)
+
+
+#tworzy punkty kola
+def create_circle_points(nr_points, z, a_x, a_y):
+    new_verts = []
+    step = 2 * math.pi /nr_points 
+
+    for i in range(nr_points):
+        t = i * step 
+        
+        x = math.cos(t) + a_x
+        y = math.sin(t) + a_y 
+        new_verts.append((x,y,z))
+
+    return new_verts
+
+
+# tworzy cylinder w podanych współrzędnych
+def create_cylinder(nr_points, x, y, z1, z2):
+    pi = math.pi    
+    
+    circle_faces = []
+    face = []
+        
+    all_verts = create_circle_points(nr_points, z1, x, y)
+    top_verts = create_circle_points(nr_points, z2, x, y)
+
+    # tworze punkty z dolnego kola i z gornego
+    for i in range(len(top_verts)):
+        all_verts.append(top_verts[i])
+              
+    all_faces = []
+
+    # tworze polaczenie punktow dolnego okregu
+    face = []    
+
+    for i in range(nr_points):
+        face.append(i)
+            
+    all_faces.append(face)
+
+
+    # tworzy polaczenie punktow gornego okregu
+    face = []
+
+    for i in range(nr_points, 2*nr_points ):
+        face.append(i)
+
+    all_faces.append(face)
+
+    # tworze sciany
+    face = []
+    for i in range(nr_points-1):
+        face.append(i)
+        face.append(i+nr_points)
+        face.append(i+1+nr_points)
+        face.append(i+1)
+        all_faces.append(face)
+        face = []
+            
+    face.append(nr_points - 1)    
+    face.append(2*nr_points - 1)    
+    face.append(nr_points)    
+    face.append(0)
+    all_faces.append(face)    
+
+    add_mesh("cylinder", all_verts, all_faces )
+
+
+
+def create_pyramid(nr_points, x, y, z1, z2):
+    all_verts = create_circle_points(nr_points, z1, x, y)
+    all_verts.append((x, y, z2))
+    
+    all_faces = []
+    
+     # tworze polaczenie punktow dolnego okregu
+    face = []    
+    for i in range(nr_points):
+        face.append(i)
+            
+    all_faces.append(face)
+    
+    # tworze sciany z wierzchołkiem
+    face = []
+    for i in range(nr_points-1):
+        face.append(i)
+        face.append(i+1)
+        face.append(nr_points)
+        all_faces.append(face)
+        face = []
+    
+    face.append(0)
+    face.append(nr_points-1)
+    face.append(nr_points)
+    all_faces.append(face)
+            
+    add_mesh("pyramid", all_verts, all_faces )
+
+    
+# tworzy sciany    
+def create_wall(x1, y1, x2, y2, z1, z2):
+    a_x = 0.0
+    a_y = 0.0
+    if y1 == y2:
+        a_y = 0.3
+    elif x1 == x2:
+        a_x = 0.3    
+    
+    all_verts = []    
+    #dolne punkty
+    all_verts.append((x1+a_x, y1+a_y, z1))
+    all_verts.append((x1-a_x, y1-a_y, z1))
+    all_verts.append((x2-a_x, y2-a_y, z1))
+    all_verts.append((x2+a_x, y2+a_y, z1))
+    # górne punkty
+    all_verts.append((x1+a_x, y1+a_y, z2))
+    all_verts.append((x1-a_x, y1-a_y, z2))
+    all_verts.append((x2-a_x, y2-a_y, z2))
+    all_verts.append((x2+a_x, y2+a_y, z2))
+
+    all_faces = []
+    
+    # dodaje ściany boczne
+    face = []
+    for i in range(3):
+        face.append(i)
+        face.append(i+1)
+        face.append(i+5)
+        face.append(i+4)
+        all_faces.append(face)
+        face = []
+        
+    all_faces.append([0, 3, 7, 4])    
+    
+    #dodaje podstawy
+    all_faces.append([0, 1, 2, 3])    
+    all_faces.append([4, 5, 6, 7])    
+        
+    add_mesh("wall", all_verts, all_faces )
+    ob = bpy.context.active_object
+    ob.data.materials.append(mat)
+    
+    create_cubes(x1, y1, x2, y2, z2)
+    
+
+# tworzy małe kwadraty na górze ściny
+def create_cubes(x1, y1, x2, y2, z):
+    a_x = 0.0
+    a_y = 0.0
+    x = x1
+    y = y1
+    
+    if y1 == y2:
+        a_y = 0.4
+        
+        z1 = z+0.8
+        dist = (abs(x1)+abs(x2))/4
+        
+        if x2 < x1:
+            x = x2
+        
+        for i in range(1, 4):
+            a = dist * i
+            bpy.ops.mesh.primitive_cube_add()
+            cube = bpy.context.active_object
+            cube.location = (x+a, y1, z+0.3)
+            cube.scale = (0.3, 0.3, 0.3)
+            ob = bpy.context.active_object
+            ob.data.materials.append(mat)
+        
+    elif x1 == x2:
+        a_x = 0.4
+        
+        z1 = z+0.8
+        dist = (abs(y1)+abs(y2))/4
+        
+        if y2 < y1:
+            y = y2
+        
+        for i in range(1, 4):
+            a = dist * i
+            bpy.ops.mesh.primitive_cube_add()
+            cube = bpy.context.active_object
+            cube.location = (x1, y+a, z+0.3)
+            cube.scale = (0.3, 0.3, 0.3)
+            ob = bpy.context.active_object
+            ob.data.materials.append(mat)
+
+
+
+if __name__ == "__main__":
+    x1 = 3.0
+    y1 = 3.0
+    x2 = -3.0
+    y2 = 3.0
+    x3 = -3.0
+    y3 = -3.0
+    x4 = 3.0
+    y4 = -3.0
+    
+    mat = bpy.data.materials.get("Red")
+    if not mat:
+        mat = bpy.data.materials.new(name="Red")
+    mat.diffuse_color = [0.4, 0.0, 0.0 , 1.0]
+    
+    pyr = bpy.data.materials.get("Brown")
+    if not pyr:
+        pyr = bpy.data.materials.new(name="Brown")
+    pyr.diffuse_color = [0.1, 0.03, 0.0 , 1.0]    
+    
+    building = bpy.data.materials.get("Blue")
+    if not building:
+        building = bpy.data.materials.new(name="Blue")
+    building.diffuse_color = [0.0, 0.0, 0.6 , 1.0]  
+    
+    black = bpy.data.materials.get("Black")
+    if not black:
+        black = bpy.data.materials.new(name="Black")
+    black.diffuse_color = [0.0, 0.0, 0.0 , 1.0]  
+    
+    create_cylinder(50, x1, y1, 0.0, 5.0)
+    ob = bpy.context.active_object
+    ob.data.materials.append(mat)
+    
+    create_pyramid(40, x1, y1, 5.0, 7.0)
+    ob = bpy.context.active_object
+    ob.data.materials.append(pyr)
+    
+    create_wall(x1, y1, x2, y2, 0.0, 3.0)
+    ob = bpy.context.active_object
+    ob.data.materials.append(mat)
+    
+    create_cylinder(50, x2, y2, 0.0, 5.0)
+    ob = bpy.context.active_object
+    ob.data.materials.append(mat)
+    
+    create_pyramid(40, x2, y2, 5.0, 7.0)
+    ob = bpy.context.active_object
+    ob.data.materials.append(pyr)
+    
+    create_wall(x2, y2, x3, y3, 0.0, 3.0)
+    ob = bpy.context.active_object
+    ob.data.materials.append(mat)
+    
+    create_cylinder(50, x3, y3, 0.0, 5.0)
+    ob = bpy.context.active_object
+    ob.data.materials.append(mat)
+    
+    create_pyramid(40, x3, y3, 5.0, 7.0)
+    ob = bpy.context.active_object
+    ob.data.materials.append(pyr)
+    
+    create_wall(x3, y3, x4, y4, 0.0, 3.0)
+    ob = bpy.context.active_object
+    ob.data.materials.append(mat)
+    
+    create_cylinder(50, x4, y4, 0.0, 5.0)
+    ob = bpy.context.active_object
+    ob.data.materials.append(mat)
+    
+    create_pyramid(40, x4, y4, 5.0, 7.0)
+    ob = bpy.context.active_object
+    ob.data.materials.append(pyr)
+        
+    create_wall(x4, y4, x1, y1, 0.0, 3.0)
+    ob = bpy.context.active_object
+    ob.data.materials.append(mat)
+    
+    create_cylinder(8, 0.0, 0.0, 0.0, 6.0)
+    ob = bpy.context.active_object
+    ob.scale = (2.0, 2.0, 1.0)
+    ob.data.materials.append(building)
+    
+    create_pyramid(40, 0.0, 0.0, 6.0, 9.0)
+    roof = bpy.context.active_object
+    roof.scale = (2.0, 2.0, 1.0)
+    roof.data.materials.append(black)
