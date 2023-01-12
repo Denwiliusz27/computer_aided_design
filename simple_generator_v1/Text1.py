@@ -437,10 +437,12 @@ def get_centre_point(points):
     if (abs(max_x[0]) - abs(min_x[0])) > abs(max_y[1]) - abs(min_y[1]):
         size = abs(max_x[0]) - abs(min_x[0])
     else:
-        size = abs(max_y[1]) - abs(min_y[1])   
+        size = abs(max_y[1]) - abs(min_y[1])
+        
+#    point = [random.uniform(min_x[0], max_x[0]), random.uniform(min_y[1], max_y[1])]
+#    return point, size    
+    return [round(x, 2), round(y, 2)], round(size, 2)
     
-    return [x,y], size
-
     
 
 # tworzy wierze w zamku
@@ -470,15 +472,22 @@ def create_castle_tower(point, scale):
 
 # generuje główny budynek w zamku
 def generate_main_building(point, size):
-    obj_nr = random.randint(1, 3)
+    obj_nr = random.randint(1, 3) 
     height = random.uniform(tower_height/(obj_nr+4), tower_height/(obj_nr+2))
-    scale = random.uniform(size/15, size/10)
+    scale = round(random.uniform(size/15, size/10), 2)
     
     if scale > 1.5*height:
         scale = 1.5*height 
+ 
+#    obj_nr = random.randint(1, 6) 
+#    height = random.uniform(1, tower_height/3)
+#    scale = random.uniform(1, size/3)
     
     #generuje obiekt w podstawie
     create_obj_with_doors(point, scale, height)
+    
+    #generuje obiekty wszerz podstawy
+    bottom_points = add_bottom_objects(point, scale, height)
     
     for i in range(obj_nr):    
         new_p = [point[0], point[1], 3*height + 2*height*i]
@@ -486,6 +495,8 @@ def generate_main_building(point, size):
 
     new_p = [point[0], point[1], 3*height + 2*height*obj_nr]
     create_top_obj(new_p, scale, height)
+    
+    return bottom_points, scale
 
 
 
@@ -862,8 +873,218 @@ def create_clock(point, scale, height):
     bpy.context.collection.objects.link(clock2_h2)    
     
     
+
+#dodaje elementy wszerz elementu głównego
+def add_bottom_objects(point, scale, height):
+    obj_nr = random.randint(1, 20)
+    bottom_obj = [point]
+    
+    for i in range(obj_nr):
+        found_p = False
+        while not found_p:
+            checks = 1
+            #wybieram punkt od którego wyjde
+            point_nr = random.randint(0, len(bottom_obj)-1)
+            temp_p = [bottom_obj[point_nr][0], bottom_obj[point_nr][1]]
+                    
+            while not found_p and checks <= 4:
+                # wybieram kierunek w którym dodam sąsiada
+                direction_nr = random.randint(0, 3)
+                match direction_nr:
+                # u góry
+                    case 0:
+                        new_p = [temp_p[0], temp_p[1] + 2*scale]
+                    # w prawo    
+                    case 1:
+                        new_p = [temp_p[0] + 2*scale, temp_p[1]]
+                    # u dołu    
+                    case 2:
+                        new_p = [temp_p[0], temp_p[1] - 2*scale]
+                    # w lewo
+                    case 3:
+                        new_p = [temp_p[0] - 2*scale, temp_p[1]]
+                    
+                if not check_if_point_in_list(bottom_obj, [round(new_p[0],2), round(new_p[1], 2)] ):
+                    bottom_obj.append([round(new_p[0], 2), round(new_p[1], 2)])
             
+                    bpy.ops.mesh.primitive_cube_add()
+                    cube = bpy.context.active_object
+                    cube.scale = (scale, scale, height)
+                    cube.location = (new_p[0], new_p[1], height)
+                    cube.data.materials.append(blue)
+                    found_p = True
+                    checks = 1
+                else:
+                    checks += 1
+                    
+    return bottom_obj
+
+            
+           
+# sprawdza czy punkt jest w liście            
+def check_if_point_in_list(list, point):
+    for i in range(len(list)):
+        if list[i][0] == point[0] and list[i][1] == point[1]:
+            return True    
+    return False    
+
+
+
+# oblicza najmniejsze odległości między klockami a ścianami
+def get_match_value(towers_points, points):
+    min_dist = []
+    
+    for i in range(len(points)):
+        min = size
+        for j in range(1, len(towers_points)):
+            distance = calculate_distance(points[i], towers_points[j-1], towers_points[j] )
+            if distance <= min:
+                min = distance  
+        min_dist.append(min)
+             
+    min_dist.sort()
+
+    return min_dist
+
+
+           
+# oblicza odległość punktu od prostej            
+def calculate_distance(p, s1, s2):
+    p = np.array([p[0], p[1]])
+    s1 = np.array([s1[0], s1[1]])
+    s2 = np.array([s2[0], s2[1]])
+    
+    return np.linalg.norm(np.cross(s2 - s1, s1 - p))/np.linalg.norm(s2 - s1)
+
+
+
+# funkcja dopasowania
+def matching_function(towers_points, bottom_points, scale):
+    points = 0
+    
+    new_points = []
+    print("all points: ", len(bottom_points))
+    print("new points: ", len(new_points))
+    
+    # sprawdzam ile punktów jest poza murami
+    e = []
+    for i in range(1, len(towers_points)):
+        e_temp = [round(towers_points[i][0] - towers_points[i-1][0], 2), round(towers_points[i][1] - towers_points[i-1][1], 2)] 
+        e.append(e_temp)
+    
+    e_temp = [round(towers_points[0][0] - towers_points[len(towers_points)-1][0], 2), round(towers_points[0][1] - towers_points[len(towers_points)-1][1], 2)] 
+    e.append(e_temp)
         
+    outside = 0
+    for i in range(len(bottom_points)):
+        f = []
+        plus = 0
+        minus = 0
+        
+        for j in range(len(towers_points)):
+            f_temp = [round(bottom_points[i][0] - towers_points[j][0], 2), round(bottom_points[i][1] - towers_points[j][1], 2)]
+            f.append(f_temp)
+    
+        for n in range(len(e)):
+            d = round(e[n][0] * f[n][1] - f[n][0] * e[n][1], 2)
+            
+            if d >= 0:
+                plus += 1 
+            if d < 0:
+                minus += 1
+            
+        if plus != 0 and minus != 0:
+            outside += 1
+        else:
+            new_points.append(bottom_points[i])
+    
+    print("new points: ", new_points)
+    print("outsiders: ", outside)
+    
+    if outside != len(bottom_points) and outside != 0:
+#        points = 0
+        points -= outside*50
+    
+    
+    else:
+        new_points = bottom_points
+        
+    
+    # liczy punkty z ilości wież 
+    points += len(towers_points)*5
+    
+    # oblicza minimalne odległości od ścian dla każdego bloku
+    min_distances = get_match_value(towers_points, new_points)
+        
+    for n in range(len(min_distances)):
+        if min_distances[n] < scale:
+            points += 1
+        elif min_distances[n] < 2*scale:    
+            points += 2
+        else:
+            points += 20
+
+    # oblicza ilość symetrii między klockami
+    symetry = 0
+    x_symetries = []
+    y_symetries = []
+    
+    for i in range(len(new_points)):
+        if round(new_points[i][0], 2) not in x_symetries:
+            x_symetries.append(round(new_points[i][0], 2))
+        if round(new_points[i][1], 2) not in y_symetries:
+            y_symetries.append(round(new_points[i][1], 2))
+
+    for i in range(len(x_symetries)):
+        x_symetry = 0
+        for j in range(len(new_points)):
+            x = x_symetries[i] - new_points[j][0]
+            
+            if new_points[j][0] < x_symetries[i]:
+                if check_if_x_symetry_point_exist(new_points, [x_symetries[i], new_points[j][1]], new_points[j] ):
+                    x_symetry += 1
+                    continue
+        symetry += pow(x_symetry, 2)
+    
+    for i in range(len(y_symetries)):
+        y_symetry = 0
+        for j in range(len(new_points)):
+            y = y_symetries[i] - new_points[j][1]
+            
+            if new_points[j][1] < y_symetries[i]:
+                if check_if_y_symetry_point_exist(new_points, [new_points[j][0], y_symetries[i]], new_points[j] ):
+                    y_symetry += 1
+                    continue
+        symetry += pow(y_symetry, 2)
+             
+    points += symetry    
+            
+    print("ALL: ", points)
+    return points
+    
+
+
+# sprawdza czy punkt ma punkt symetryczny według symetrii x
+def check_if_x_symetry_point_exist(points, middle_point, point):
+    x = round(middle_point[0]-point[0], 2)
+    
+    for i in range(len(points)):    
+        if (points[i][0] == round(x + middle_point[0],2) and points[i][1] == point[1]):
+            return True
+    return False
+          
+
+
+# sprawdza czy punkt ma punkt symetryczny według symetrii y
+def check_if_y_symetry_point_exist(points, middle_point, point):
+    y = round(middle_point[1]-point[1], 2)
+    
+    for i in range(len(points)):   
+        if (points[i][1] == round(y + middle_point[1],2) and points[i][0] == point[0]):
+            return True
+    return False
+
+
 
 if __name__ == "__main__":
     bpy.ops.object.select_all(action='SELECT')
@@ -897,7 +1118,6 @@ if __name__ == "__main__":
         yellow = bpy.data.materials.new(name="Yellow")
     yellow.diffuse_color = [1.0, 1.0, 0.0 , 1.0]
     
-    
     # losuje ilość punktów
     towers_nr = random.randint(3, 50)
     
@@ -911,7 +1131,7 @@ if __name__ == "__main__":
     tower_width = random.randint(1, 3)
     tower_height = random.randint(4, 8)
 
-    # usuwam z otoczki punkty leżące zbut blisko siebie
+    # usuwam z otoczki punkty leżące zbyt blisko siebie
     last_points = delete_too_narrow_convex_points(convex_points, tower_width)
 
     # generuje wieże
@@ -921,7 +1141,10 @@ if __name__ == "__main__":
     generate_walls(last_points)
     
     # generuje budynek w środku - zamek
-    point, size = get_centre_point(last_points)    
-    generate_main_building(point, size) #point, size)
+    point, size = get_centre_point(last_points)
+    bottom_points, scale = generate_main_building(point, size) #point, size)
 
     bpy.ops.object.select_all(action='DESELECT')
+    
+    # zwraca wartość funkcji 
+    points = matching_function(last_points, bottom_points, scale)
