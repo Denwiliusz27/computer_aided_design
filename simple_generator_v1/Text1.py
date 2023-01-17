@@ -6,6 +6,21 @@ import time
 import numpy as np
 
 
+class Castle:
+    def __init__(self, towers_p, tower_w, tower_h, m_point, mp_h, mp_w, bottom_points, tower_objects, points):
+        self.towers_points = towers_p
+        self.tower_w = tower_w
+        self.tower_h = tower_h
+        self.main_point = m_point
+        self.main_point = m_point
+        self.mp_h = mp_h
+        self.mp_w = mp_w
+        self.bottom_points = bottom_points
+        self.tower_objects = tower_objects
+        self.points = points
+
+
+
 class Stack:
     def __init__ (self):        # Kostruktor
         self.Stack = []
@@ -201,8 +216,6 @@ def create_wall(x1, y1, x2, y2, z1, z2):
         
     add_mesh("wall", all_verts, all_faces )
     ob = bpy.context.active_object
-#    ob.data.rederials.append(red)
-#    create_cubes(x1, y1, x2, y2, z2)
     
 
 
@@ -373,7 +386,7 @@ def delete_too_narrow_convex_points(convex_points, tower_width):
 
 
 # generuje na ekranie wieże z podanej listy punktów
-def generate_towers(last_points):
+def generate_towers(last_points, tower_width, tower_height):
     for i in range(len(last_points)):
         create_cylinder(50, 0.0, 0.0, 0.0, 1.0)
         ob = bpy.context.active_object
@@ -390,7 +403,7 @@ def generate_towers(last_points):
 
 
 # generuje pojedynczą ściane
-def generate_single_wall(point1, point2):
+def generate_single_wall(point1, point2, tower_width, tower_height):
     create_wall(0.0, 0.0, 1.0, 0.0, 0.0, 1.0)
     ob = bpy.context.active_object
         
@@ -406,11 +419,11 @@ def generate_single_wall(point1, point2):
 
 
 # generuje ściany na ekranie
-def generate_walls(points):
+def generate_walls(points, tower_width, tower_height):
     for i in range(1, len(points)):
-        generate_single_wall(points[i-1], points[i])
+        generate_single_wall(points[i-1], points[i], tower_width, tower_height)
     
-    generate_single_wall(points[len(points)-1], points[0])
+    generate_single_wall(points[len(points)-1], points[0], tower_width, tower_height)
     
         
     
@@ -439,14 +452,12 @@ def get_centre_point(points):
     else:
         size = abs(max_y[1]) - abs(min_y[1])
         
-#    point = [random.uniform(min_x[0], max_x[0]), random.uniform(min_y[1], max_y[1])]
-#    return point, size    
-    return [round(x, 2), round(y, 2)], round(size, 2)
+    return [round(x, 2), round(y, 2)], round(size, 0)
     
     
 
 # tworzy wierze w zamku
-def create_castle_tower(point, scale):
+def create_castle_tower(point, scale, tower_height):
     width = scale/2.5
     
     create_cylinder(50, 0.0, 0.0, 0.0, 1.0)
@@ -471,17 +482,17 @@ def create_castle_tower(point, scale):
 
 
 # generuje główny budynek w zamku
-def generate_main_building(point, size):
+def generate_main_building(point, size, tower_width, tower_height):
     obj_nr = random.randint(1, 3) 
-    height = random.uniform(tower_height/(obj_nr+4), tower_height/(obj_nr+2))
-    scale = round(random.uniform(size/15, size/10), 2)
+#    height = round(tower_height/(obj_nr+3), 2)
+#    scale = round(size/12, 2)
+    height = 1
+    scale = 1
     
-    if scale > 1.5*height:
-        scale = 1.5*height 
- 
-#    obj_nr = random.randint(1, 6) 
-#    height = random.uniform(1, tower_height/3)
-#    scale = random.uniform(1, size/3)
+    objects = []
+    
+#    if scale > 1.5*height:
+#        scale = 1.5*height 
     
     #generuje obiekt w podstawie
     create_obj_with_doors(point, scale, height)
@@ -491,12 +502,12 @@ def generate_main_building(point, size):
     
     for i in range(obj_nr):    
         new_p = [point[0], point[1], 3*height + 2*height*i]
-        create_middle_obj(new_p, scale, height)
+        objects.append(create_middle_obj(new_p, scale, height))
 
     new_p = [point[0], point[1], 3*height + 2*height*obj_nr]
-    create_top_obj(new_p, scale, height)
+    objects.append(create_top_obj(new_p, scale, height, tower_height))
     
-    return bottom_points, scale
+    return bottom_points, scale, height, objects
 
 
 
@@ -536,6 +547,8 @@ def create_middle_obj(point, scale, height):
         # tworze obiekt z wcięciami
         case 3:
             create_indentend_obj(point, scale, height)
+    
+    return rand_obj
 
 
 
@@ -754,22 +767,23 @@ def create_indentend_obj(point, scale, height):
     
 
 # generuje obiekt na szczycie 
-def create_top_obj(point, scale, height):
+def create_top_obj(point, scale, height, tower_height):
     rand_obj = random.randint(1, 2)
 
     match rand_obj:
         # tworze obiekt z wieżami na krawędziach
         case 1:
-           create_obj_with_towers(point, scale, height)      
+           create_obj_with_towers(point, scale, height, tower_height)      
 
         # tworze wieże z zegarem 
         case 2:
            create_clock([point[0], point[1], point[2]-height], scale, height)
-        
+    
+    return rand_obj
            
 
 # tworzy obiekt z wieżami na krawędziach
-def create_obj_with_towers(point, scale, height):
+def create_obj_with_towers(point, scale, height, tower_height):
     bpy.ops.mesh.primitive_cube_add()
     cube = bpy.context.active_object
     cube.scale = (scale, scale, height)
@@ -779,19 +793,19 @@ def create_obj_with_towers(point, scale, height):
     value = 0.1
     # prawy góra
     corner_point = [point[0] + scale, point[1] + scale, point[2] - (height)*value]
-    create_castle_tower(corner_point, height)
+    create_castle_tower(corner_point, height, tower_height)
     
     #prawy dół
     corner_point = [point[0] + scale, point[1] - scale, point[2] - (height)*value]
-    create_castle_tower(corner_point, height)
+    create_castle_tower(corner_point, height, tower_height)
     
     #lewy dół
     corner_point = [point[0] - scale, point[1] - scale, point[2] - (height)*value]
-    create_castle_tower(corner_point, height)
+    create_castle_tower(corner_point, height, tower_height)
     
     #lewy góra
     corner_point = [point[0] - scale, point[1] + scale, point[2] - (height)*value]
-    create_castle_tower(corner_point, height)
+    create_castle_tower(corner_point, height, tower_height)
 
 
 
@@ -931,7 +945,7 @@ def check_if_point_in_list(list, point):
 
 
 # oblicza najmniejsze odległości między klockami a ścianami
-def get_match_value(towers_points, points):
+def get_match_value(towers_points, points, size):
     min_dist = []
     
     for i in range(len(points)):
@@ -961,10 +975,7 @@ def calculate_distance(p, s1, s2):
 # funkcja dopasowania
 def matching_function(towers_points, bottom_points, scale):
     points = 0
-    
     new_points = []
-    print("all points: ", len(bottom_points))
-    print("new points: ", len(new_points))
     
     # sprawdzam ile punktów jest poza murami
     e = []
@@ -974,7 +985,7 @@ def matching_function(towers_points, bottom_points, scale):
     
     e_temp = [round(towers_points[0][0] - towers_points[len(towers_points)-1][0], 2), round(towers_points[0][1] - towers_points[len(towers_points)-1][1], 2)] 
     e.append(e_temp)
-        
+    
     outside = 0
     for i in range(len(bottom_points)):
         f = []
@@ -997,24 +1008,17 @@ def matching_function(towers_points, bottom_points, scale):
             outside += 1
         else:
             new_points.append(bottom_points[i])
-    
-    print("new points: ", new_points)
-    print("outsiders: ", outside)
-    
+
     if outside != len(bottom_points) and outside != 0:
-#        points = 0
-        points -= outside*50
-    
-    
+        points -= outside*100
     else:
         new_points = bottom_points
         
-    
     # liczy punkty z ilości wież 
     points += len(towers_points)*5
     
     # oblicza minimalne odległości od ścian dla każdego bloku
-    min_distances = get_match_value(towers_points, new_points)
+    min_distances = get_match_value(towers_points, new_points, scale)
         
     for n in range(len(min_distances)):
         if min_distances[n] < scale:
@@ -1086,6 +1090,59 @@ def check_if_y_symetry_point_exist(points, middle_point, point):
 
 
 
+
+def create_parent(x, y, red, brown, blue, black, yellow):
+    # losuje ilość punktów
+    towers_nr = random.randint(3, 50)
+    
+    # generuje liste punktów
+    towers_points = generate_points(towers_nr)
+    
+    # tworzy otoczke wypukłą z podanych punktów i zwraca punkty tej ortoczki
+    convex_points = create_convex_shell(towers_points)
+
+    # ustawiam skalę szerokości i wysokości wież
+    tower_width = random.randint(1, 3)
+    tower_height = random.randint(4, 8)
+
+    # usuwam z otoczki punkty leżące zbyt blisko siebie
+    last_points = delete_too_narrow_convex_points(convex_points, tower_width)
+
+    # punkty przed zmianą
+    org_points = []
+        
+    for i in range(len(last_points)):
+        org_points.append([last_points[i][0], last_points[i][1]])
+        last_points[i] = [last_points[i][0] + x, last_points[i][1] + y]
+
+    # generuje wieże
+    generate_towers(last_points, tower_width, tower_height)
+    
+    # generuje ściany między wieżami
+    generate_walls(last_points, tower_width, tower_height)
+    
+    # generuje budynek w środku - zamek
+    point, size = get_centre_point(last_points)
+    bottom_points, scale, height, objects = generate_main_building(point, size, tower_width, tower_height) #point, size)
+
+    bpy.ops.object.select_all(action='DESELECT')
+    
+    # zwraca wartość funkcji 
+    points = matching_function(last_points, bottom_points, scale)
+
+    # ustawienie wczesnieszych wartosci
+    for i in range(len(bottom_points)):
+        bottom_points[i] = [bottom_points[i][0] - x, bottom_points[i][1] - y]
+    
+    point = [point[0]-x, point[1]-y]
+    return Castle(org_points, tower_width, tower_height, point, height, scale, bottom_points, objects, points)
+    
+#    bpy.ops.object.select_all(action='SELECT')
+#    bpy.ops.transform.translate(value=(x, y, 0), orient_axis_ortho='X', orient_type='LOCAL', orient_matrix=((1, 0, 0), (0, 1, 0), (0, 0, 1)), orient_matrix_type='LOCAL', constraint_axis=(True, False, False), mirror=True, use_proportional_edit=False, proportional_edit_falloff='SMOOTH', proportional_size=1, use_proportional_connected=False, use_proportional_projected=False, snap=False, snap_elements={'INCREMENT'}, use_snap_project=False, snap_target='CLOSEST', use_snap_self=False, use_snap_edit=False, use_snap_nonedit=False, use_snap_selectable=False, release_confirm=True)
+#    bpy.ops.object.select_all(action='DESELECT')
+
+
+
 if __name__ == "__main__":
     bpy.ops.object.select_all(action='SELECT')
     bpy.ops.object.delete(use_global=False)
@@ -1117,34 +1174,106 @@ if __name__ == "__main__":
     if not yellow:
         yellow = bpy.data.materials.new(name="Yellow")
     yellow.diffuse_color = [1.0, 1.0, 0.0 , 1.0]
-    
-    # losuje ilość punktów
-    towers_nr = random.randint(3, 50)
-    
-    # generuje liste punktów
-    towers_points = generate_points(towers_nr)
-    
-    # tworzy otoczke wypukłą z podanych punktów i zwraca punkty tej ortoczki
-    convex_points = create_convex_shell(towers_points)
 
-    # ustawiam skalę szerokości i wysokości wież
-    tower_width = random.randint(1, 3)
-    tower_height = random.randint(4, 8)
 
-    # usuwam z otoczki punkty leżące zbyt blisko siebie
-    last_points = delete_too_narrow_convex_points(convex_points, tower_width)
+    p1 = create_parent(-40,0,red, brown, blue, black, yellow)
+    p2 = create_parent(40, 0, red, brown, blue, black, yellow)
 
-    # generuje wieże
-    generate_towers(last_points)
-    
-    # generuje ściany między wieżami
-    generate_walls(last_points)
-    
-    # generuje budynek w środku - zamek
-    point, size = get_centre_point(last_points)
-    bottom_points, scale = generate_main_building(point, size) #point, size)
 
-    bpy.ops.object.select_all(action='DESELECT')
+    towers = []
+    for i in range(len(p1.towers_points)//2):
+        towers.append(p1.towers_points[i])
+        
+    for i in range(len(p2.towers_points)//2, len(p2.towers_points)):
+        towers.append(p2.towers_points[i])
     
-    # zwraca wartość funkcji 
-    points = matching_function(last_points, bottom_points, scale)
+    print("p1:", p1.towers_points)
+    print("p2:", p2.towers_points)
+    print("towers: ", towers )
+
+    x = 0
+    y = 40
+    
+    
+    
+    
+    for i in range(len(towers)):
+        towers[i] = [towers[i][0] + x, towers[i][1] + y]
+    
+    generate_towers(towers, p1.tower_w, p1.tower_h)
+    generate_walls(towers, p1.tower_w, p1.tower_h)
+    
+    point = [p1.main_point[0]+x, p1.main_point[1]+y]
+    p_w = p2.mp_w
+    p_h = p1.mp_h
+    
+    create_obj_with_doors(point, p_w, p_h)
+    
+    bottom_p = []
+    for i in range(len(p1.bottom_points)//2):
+        bottom_p.append([p1.bottom_points[i][0]+x, p1.bottom_points[i][1]+y])
+    
+    for i in range(len(p2.bottom_points)//2, len(p2.bottom_points)):
+        bottom_p.append([p2.bottom_points[i][0]+x, p2.bottom_points[i][1]+y])
+    
+    for i in range(len(bottom_p)):
+        bpy.ops.mesh.primitive_cube_add()
+        cube = bpy.context.active_object
+        cube.scale = (p_w, p_w, p_h)
+        cube.location = (bottom_p[i][0], bottom_p[i][1], p_h)
+        cube.data.materials.append(blue)
+    
+    
+    
+    
+    
+    
+    
+    generate_towers(p1.towers_points, p1.tower_w, p1.tower_h)
+    generate_walls(p1.towers_points, p1.tower_w, p1.tower_h)
+    
+    
+    #generuje obiekt w podstawie
+    create_obj_with_doors(p1.main_point, p1.mp_w, p1.mp_h)
+    
+    for i in range(len(p1.bottom_points)):
+        bpy.ops.mesh.primitive_cube_add()
+        cube = bpy.context.active_object
+        cube.scale = (p1.mp_w, p1.mp_w, p1.mp_h)
+        cube.location = (p1.bottom_points[i][0], p1.bottom_points[i][1], p1.mp_h)
+        cube.data.materials.append(blue)
+    
+    
+#    
+#    #generuje obiekty wszerz podstawy
+#    bottom_points = add_bottom_objects(point, scale, height)
+#    
+#    for i in range(obj_nr):    
+#        new_p = [point[0], point[1], 3*height + 2*height*i]
+#        objects.append(create_middle_obj(new_p, scale, height))
+
+#    new_p = [point[0], point[1], 3*height + 2*height*obj_nr]
+#    objects.append(create_top_obj(new_p, scale, height, tower_height))
+
+
+
+#KLASA
+    # do genotypu
+    # tower_width, tower_height - wymiary wież
+    # last_points - umiejscowienie wież
+    # scale, height - szerokość i wysokość kostek
+    # point - środkowy punkt
+    # bottom_points - reszta kostek
+    # tower_objects - obiekty środkowego elementu   
+    
+    
+#        self.towers_points = towers_p
+#        self.tower_w = tower_w
+#        self.tower_h = tower_h
+#        self.main_point = m_point
+#        self.main_point = m_point
+#        self.mp_h = mp_h
+#        self.mp_w = mp_w
+#        self.bottom_points = bottom_points
+#        self.tower_objects = tower_objects
+#        self.points = points
