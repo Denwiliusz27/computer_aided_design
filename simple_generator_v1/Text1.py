@@ -6,8 +6,9 @@ import time
 import numpy as np
 
 
+# klasa reprezentująca genotyp zamku
 class Castle:
-    def __init__(self, towers_p, tower_w, tower_h, m_point, mp_h, mp_w, bottom_points, tower_objects, points):
+    def __init__(self, towers_p, tower_w, tower_h, m_point, mp_h, mp_w, bottom_points, tower_objects, cordinate_system_point, points):
         self.towers_points = towers_p
         self.tower_w = tower_w
         self.tower_h = tower_h
@@ -17,6 +18,7 @@ class Castle:
         self.bottom_points = bottom_points
         self.tower_objects = tower_objects
         self.points = points
+        self.cordinate_system_point = cordinate_system_point
 
 
 
@@ -99,7 +101,6 @@ def create_cylinder(nr_points, x, y, z1, z2):
         face.append(i)
             
     all_faces.append(face)
-
 
     # tworzy polaczenie punktow gornego okregu
     face = []
@@ -218,51 +219,6 @@ def create_wall(x1, y1, x2, y2, z1, z2):
     
 
 
-# tworzy małe kwadraty na górze ściny
-def create_cubes(x1, y1, x2, y2, z):
-    a_x = 0.0
-    a_y = 0.0
-    x = x1
-    y = y1
-    
-    if y1 == y2:
-        a_y = 0.4
-        
-        z1 = z+0.8
-        dist = (abs(x1)+abs(x2))/4
-        
-        if x2 < x1:
-            x = x2
-        
-        for i in range(1, 4):
-            a = dist * i
-            bpy.ops.mesh.primitive_cube_add()
-            cube = bpy.context.active_object
-            cube.location = (x+a, y1, z+0.3)
-            cube.scale = (0.3, 0.3, 0.3)
-            ob = bpy.context.active_object
-            ob.data.materials.append(red)
-        
-    elif x1 == x2:
-        a_x = 0.4
-        
-        z1 = z+0.8
-        dist = (abs(y1)+abs(y2))/4
-        
-        if y2 < y1:
-            y = y2
-        
-        for i in range(1, 4):
-            a = dist * i
-            bpy.ops.mesh.primitive_cube_add()
-            cube = bpy.context.active_object
-            cube.location = (x1, y+a, z+0.3)
-            cube.scale = (0.3, 0.3, 0.3)
-            ob = bpy.context.active_object
-            ob.data.materials.append(brown)
-
-
-
 # generuje liste punktów w układzie współrzędnych
 def generate_points(max_nr):
     points = []
@@ -358,7 +314,7 @@ def create_convex_shell(towers_points):
     convex_shell_points.Push([alpha_points[1][0], alpha_points[1][1]])
     
     for i in range(2, len(alpha_points)):
-        while is_right(convex_shell_points, alpha_points[i]) < 0.0: # is_right(convex_shell_points.Top(), convex_shell_points.Next_To_Top(), alpha_points[i]) < 0.0:
+        while is_right(convex_shell_points, alpha_points[i]) < 0.0: 
             convex_shell_points.Pop()
         convex_shell_points.Push([alpha_points[i][0], alpha_points[i][1]])
 
@@ -510,7 +466,6 @@ def generate_main_building(point, size, tower_width, tower_height):
 #    scale = round(size/12, 2)
     height = 1.5
     scale = 1.5
-    
     objects = []
     
 #    if scale > 1.5*height:
@@ -936,7 +891,8 @@ def add_bottom_objects(point, scale, height):
                     checks = 1
                 else:
                     checks += 1
-                    
+        
+    bottom_obj.sort(key = lambda x: x[0])
     return bottom_obj
 
             
@@ -973,33 +929,32 @@ def calculate_distance(p, s1, s2):
     p = np.array([p[0], p[1]])
     s1 = np.array([s1[0], s1[1]])
     s2 = np.array([s2[0], s2[1]])
-    
     return np.linalg.norm(np.cross(s2 - s1, s1 - p))/np.linalg.norm(s2 - s1)
 
 
 
 # funkcja dopasowania
-def matching_function(towers_points, bottom_points, scale):
+def matching_function(castle): #(towers_points, bottom_points, scale):
     points = 0
     new_points = []
     
     # sprawdzam ile punktów jest poza murami
     e = []
-    for i in range(1, len(towers_points)):
-        e_temp = [round(towers_points[i][0] - towers_points[i-1][0], 2), round(towers_points[i][1] - towers_points[i-1][1], 2)] 
+    for i in range(1, len(castle.towers_points)):
+        e_temp = [round(castle.towers_points[i][0]-castle.towers_points[i-1][0], 2), round(castle.towers_points[i][1]-castle.towers_points[i-1][1], 2)] 
         e.append(e_temp)
     
-    e_temp = [round(towers_points[0][0] - towers_points[len(towers_points)-1][0], 2), round(towers_points[0][1] - towers_points[len(towers_points)-1][1], 2)] 
+    e_temp = [round(castle.towers_points[0][0]-castle.towers_points[len(castle.towers_points)-1][0], 2), round(castle.towers_points[0][1]-castle.towers_points[len(castle.towers_points)-1][1], 2)] 
     e.append(e_temp)
     
     outside = 0
-    for i in range(len(bottom_points)):
+    for i in range(len(castle.bottom_points)):
         f = []
         plus = 0
         minus = 0
         
-        for j in range(len(towers_points)):
-            f_temp = [round(bottom_points[i][0] - towers_points[j][0], 2), round(bottom_points[i][1] - towers_points[j][1], 2)]
+        for j in range(len(castle.towers_points)):
+            f_temp = [round(castle.bottom_points[i][0]-castle.towers_points[j][0],2), round(castle.bottom_points[i][1]-castle.towers_points[j][1],2)]
             f.append(f_temp)
     
         for n in range(len(e)):
@@ -1013,23 +968,23 @@ def matching_function(towers_points, bottom_points, scale):
         if plus != 0 and minus != 0:
             outside += 1
         else:
-            new_points.append(bottom_points[i])
+            new_points.append(castle.bottom_points[i])
 
-    if outside != len(bottom_points) and outside != 0:
+    if outside < len(castle.bottom_points)-3 and outside != 0:
         points -= outside*100
     else:
-        new_points = bottom_points
+        new_points = castle.bottom_points
         
     # liczy punkty z ilości wież 
-    points += len(towers_points)*5
+    points += len(castle.towers_points)*5
     
     # oblicza minimalne odległości od ścian dla każdego bloku
-    min_distances = get_match_value(towers_points, new_points, scale)
+    min_distances = get_match_value(castle.towers_points, new_points, castle.mp_h)
         
     for n in range(len(min_distances)):
-        if min_distances[n] < scale:
+        if min_distances[n] < castle.mp_h:
             points += 1
-        elif min_distances[n] < 2*scale:    
+        elif min_distances[n] < 2*castle.mp_h:    
             points += 2
         else:
             points += 20
@@ -1066,10 +1021,8 @@ def matching_function(towers_points, bottom_points, scale):
                     y_symetry += 1
                     continue
         symetry += pow(y_symetry, 2)
-             
+
     points += symetry    
-            
-    print("ALL: ", points)
     return points
     
 
@@ -1128,25 +1081,16 @@ def create_parent(x, y, red, brown, blue, black, yellow):
     generate_walls(last_points, tower_width, tower_height)
     
     # generuje budynek w środku - zamek
-    point, size = get_centre_point(org_points)  # (last_points)
+    point, size = get_centre_point(org_points)  
     point = [point[0]+x, point[1]+y]
-    bottom_points, scale, height, objects = generate_main_building(point, size, tower_width, tower_height) #point, size)
-
-    bpy.ops.object.select_all(action='DESELECT')
-    
-    # zwraca wartość funkcji 
-    points = matching_function(last_points, bottom_points, scale)
+    bottom_points, scale, height, objects = generate_main_building(point, size, tower_width, tower_height) 
 
     # ustawienie wczesnieszych wartosci
     for i in range(len(bottom_points)):
         bottom_points[i] = [bottom_points[i][0] - x, bottom_points[i][1] - y]
     
     point = [point[0]-x, point[1]-y]
-    return Castle(org_points, tower_width, tower_height, point, height, scale, bottom_points, objects, points)
-    
-#    bpy.ops.object.select_all(action='SELECT')
-#    bpy.ops.transform.translate(value=(x, y, 0), orient_axis_ortho='X', orient_type='LOCAL', orient_matrix=((1, 0, 0), (0, 1, 0), (0, 0, 1)), orient_matrix_type='LOCAL', constraint_axis=(True, False, False), mirror=True, use_proportional_edit=False, proportional_edit_falloff='SMOOTH', proportional_size=1, use_proportional_connected=False, use_proportional_projected=False, snap=False, snap_elements={'INCREMENT'}, use_snap_project=False, snap_target='CLOSEST', use_snap_self=False, use_snap_edit=False, use_snap_nonedit=False, use_snap_selectable=False, release_confirm=True)
-#    bpy.ops.object.select_all(action='DESELECT')
+    return Castle(org_points, tower_width, tower_height, point, height, scale, bottom_points, objects, [-15, 0], 0)
 
 
 
@@ -1211,18 +1155,25 @@ def crossing(parent1, parent2):
     for i in range(len(parent1.tower_objects)//2, len(parent1.tower_objects)):
         main_b2.append(parent1.tower_objects[i])
 
-    ch1 =  Castle(towers1, parent1.tower_w, parent1.tower_h, point1, p1_h, p1_w, bottom_p1, main_b1, 0)
-    ch2 =  Castle(towers2, parent2.tower_w, parent2.tower_h, point2, p2_h, p2_w, bottom_p2, main_b2, 0)
+    ch1 =  Castle(towers1, parent1.tower_w, parent1.tower_h, point1, p1_h, p1_w, bottom_p1, main_b1, [x1, y], 0)
+    ch2 =  Castle(towers2, parent2.tower_w, parent2.tower_h, point2, p2_h, p2_w, bottom_p2, main_b2, [x2, y], 0)
 
     return ch1, ch2
 
 
 
-def generate_child(child):    
+# generuje zamek o podanym genotypie
+def generate_castle(child):
+    # generacja wież w murach
     generate_towers(child.towers_points, child.tower_w, child.tower_h)
+    
+    #generacja ścian między wieżami
     generate_walls(child.towers_points, child.tower_w, child.tower_h)
+    
+    # generacja podstawy środkowego obiektu
     create_obj_with_doors(child.main_point, child.mp_w, child.mp_h)
     
+    # generacja reszty kostek
     for i in range(len(child.bottom_points)):
         bpy.ops.mesh.primitive_cube_add()
         cube = bpy.context.active_object
@@ -1230,6 +1181,7 @@ def generate_child(child):
         cube.location = (child.bottom_points[i][0], child.bottom_points[i][1], child.mp_h)
         cube.data.materials.append(blue)
 
+    # generacja reszty śrokowego obiektu
     for i in range(len(child.tower_objects)):
         tmp_point = [child.main_point[0], child.main_point[1], 3*child.mp_h + 2*child.mp_h*i]
         match child.tower_objects[i]:
@@ -1245,8 +1197,8 @@ def generate_child(child):
             case 3:
                 create_indentend_obj(tmp_point, child.mp_w, child.mp_h)
         
-    tmp_point = [child.main_point[0], child.main_point[1], 3*len(child.tower_objects)*child.mp_h]
-    match  child.tower_objects[len(child.tower_objects)-1]:
+    tmp_point = [child.main_point[0], child.main_point[1], 2*len(child.tower_objects)*child.mp_h + 3*child.mp_h]
+    match child.tower_objects[len(child.tower_objects)-1]:
         # tworze obiekt z wieżami na krawędziach
         case 1:
            create_obj_with_towers(tmp_point, child.mp_w, child.mp_h, child.tower_h)      
@@ -1256,7 +1208,84 @@ def generate_child(child):
 
 
 
+# dodaje punkt do listy wież
+def relocate_towers_and_add_new_tower(towers, new_tower, cordinate_point):
+    new_towers = []
+    new_towers.append([round(new_tower[0]-cordinate_point[0],2), round(new_tower[1]-cordinate_point[1],2)])
+    
+    # przesunięcie do początku ukł współrzędnych
+    for i in range(len(towers)):
+        new_towers.append([round(towers[i][0]-cordinate_point[0],2), round(towers[i][1]-cordinate_point[1],2)])
+    
+    alpha_points = calculate_alpha(new_towers)
+    new_towers = []
+    
+    for i in range(len(alpha_points)):
+        new_towers.append([alpha_points[i][0]+cordinate_point[0], alpha_points[i][1]+cordinate_point[1]])
+    
+    return new_towers
+    
+    
+    
+# dokonuje mutacji na wieżach i obiektach podstawy
+def mutate(child):
+    rand_op = random.randint(1, 4)
+    
+    # mutacja wież
+    match rand_op:
+        # dodaj wieżę
+        case 1:
+            temp_x = random.uniform(child.cordinate_system_point[0]-15, child.cordinate_system_point[0]+15)
+            temp_y = random.uniform(child.cordinate_system_point[1], child.cordinate_system_point[1]+30)
+            rand_point = [temp_x, temp_y]
+            child.towers_points = relocate_towers_and_add_new_tower(child.towers_points, rand_point, child.cordinate_system_point)         
+        # przesuń jedną wieżę
+        case 2:
+            rand_tower_nr = random.randint(0, len(child.towers_points)-1)
+            temp_x = random.uniform(-5, 5)
+            temp_y = random.uniform(-5, 5)
+            child.towers_points[rand_tower_nr] = [round(child.towers_points[rand_tower_nr][0],2)+temp_x, round(child.towers_points[rand_tower_nr][1],2)+temp_y]
+            
+        # usuń jedną wieżę
+        case 3:
+            rand_tower_nr = random.randint(0, len(child.towers_points)-1)
+            child.towers_points.pop(rand_tower_nr)
+            
+        case 4:
+            pass
 
+    
+    # mutacja klocków
+    rand_op = random.randint(1, 3)
+    match rand_op:
+        # dodaj klocek
+        case 1:
+            while(1):
+                temp_x = round(random.choice(range(child.main_point[0]-15, child.main_point[0]+15, 3)), 2)
+                temp_y = round(random.choice(range(child.main_point[1]-15, child.main_point[1]+15, 3)), 2)
+                
+                if not check_if_point_in_list(child.bottom_points, [temp_x, temp_y]):
+                    child.bottom_points.append([temp_x, temp_y])
+                    break;
+        
+        # przesuń
+        case 2:
+            while(1):
+                rand_nr = random.randint(0, len(child.bottom_points)-1)
+                temp_x = round(random.choice(range(-15, 15, 3)), 2)
+                temp_y = round(random.choice(range(-15, 15, 3)), 2)
+                
+                if check_if_point_in_list(child.bottom_points, [child.bottom_points[rand_nr][0]+temp_x, child.bottom_points[rand_nr][1]+temp_y]):
+                    child.bottom_points[rand_nr] = [child.bottom_points[rand_nr][0]+temp_x, child.bottom_points[rand_nr][1]+temp_y]
+                    break;
+        
+        # usuń klocek
+        case 3:
+            rand_nr = random.randint(0, len(child.bottom_points)-1)
+            child.bottom_points.pop(rand_nr)
+       
+        case 4:
+            pass
 
 
 
@@ -1292,143 +1321,20 @@ if __name__ == "__main__":
         yellow = bpy.data.materials.new(name="Yellow")
     yellow.diffuse_color = [1.0, 1.0, 0.0 , 1.0]
 
-
     p1 = create_parent(-30,0,red, brown, blue, black, yellow)
     p2 = create_parent(30, 0, red, brown, blue, black, yellow)
 
     child1, child2 = crossing(p1, p2)
-    generate_child(child1)
-    generate_child(child2)
-
-
-#    towers = []
-#    for i in range(len(p1.towers_points)//2):
-#        towers.append(p1.towers_points[i])
-#        
-#    for i in range(len(p2.towers_points)//2, len(p2.towers_points)):
-#        towers.append(p2.towers_points[i])
-#
-#    x = -30
-#    y = 40
-#    
-#    
-#    
-#    
-#    for i in range(len(towers)):
-#        towers[i] = [towers[i][0] + x, towers[i][1] + y]
-#    
-#    generate_towers(towers, p1.tower_w, p1.tower_h)
-#    generate_walls(towers, p1.tower_w, p1.tower_h)
-#    
-#    point = [p1.main_point[0]+x, p1.main_point[1]+y]
-#    p_w = p2.mp_w
-#    p_h = p1.mp_h
-#    
-#    create_obj_with_doors(point, p_w, p_h)
-#    
-#    bottom_p = []
-#    for i in range(len(p1.bottom_points)//2):
-#        bottom_p.append([p1.bottom_points[i][0]+x, p1.bottom_points[i][1]+y])
-#    
-#    for i in range(len(p2.bottom_points)//2, len(p2.bottom_points)):
-#        bottom_p.append([p2.bottom_points[i][0]+x, p2.bottom_points[i][1]+y])
-#    
-#    for i in range(len(bottom_p)):
-#        bpy.ops.mesh.primitive_cube_add()
-#        cube = bpy.context.active_object
-#        cube.scale = (p_w, p_w, p_h)
-#        cube.location = (bottom_p[i][0], bottom_p[i][1], p_h)
-#        cube.data.materials.append(blue)
-#    
-#    
-#    print("main: ", p1.tower_objects)
-#    print("main: ", p2.tower_objects)
-#    
-#    
-#    main_b = []
-#    for i in range(len(p1.tower_objects)//2):
-#        main_b.append(p1.tower_objects[i])
-#    
-#    for i in range(len(p2.tower_objects)//2, len(p2.tower_objects)):
-#        main_b.append(p2.tower_objects[i])
-#    
-#    
-#    for i in range(len(main_b)):
-#        tmp_point = [point[0], point[1], 3*p_h + 2*p_h*i]
-#        match main_b[i]:
-#            # tworze obiekt z kwadratowymi oknami
-#            case 1:
-#                create_obj_with_cubic_window(tmp_point, p_w, p_h)
-#            
-#            # tworze obiekt z okrągłymi oknami
-#            case 2:
-#                create_obj_with_circle_window(tmp_point, p_w, p_h)
-#            
-#            # tworze obiekt z wcięciami
-#            case 3:
-#                create_indentend_obj(tmp_point, p_w, p_h)
-#        
-#        
-#    tmp_point = [point[0], point[1], 3*len(main_b)*p_h]
-#    match  main_b[len(main_b)-1]:
-#        # tworze obiekt z wieżami na krawędziach
-#        case 1:
-#           create_obj_with_towers(tmp_point, p_w, p_h, p1.tower_h)      
-#
-#        # tworze wieże z zegarem 
-#        case 2:
-#           create_clock([tmp_point[0], tmp_point[1], tmp_point[2]-p_h], p_w, p_h)
     
+    mutate(child1)
+    generate_castle(child1)
     
+    mutate(child2)
+    generate_castle(child2)
     
+    print("parent 1:", matching_function(p1))
+    print("parent 2:", matching_function(p2))
+    print("child 1:", matching_function(child1))
+    print("child 2:", matching_function(child2))
     
-#    generate_towers(p1.towers_points, p1.tower_w, p1.tower_h)
-#    generate_walls(p1.towers_points, p1.tower_w, p1.tower_h)
-#    
-#    
-#    #generuje obiekt w podstawie
-#    create_obj_with_doors(p1.main_point, p1.mp_w, p1.mp_h)
-#    
-#    for i in range(len(p1.bottom_points)):
-#        bpy.ops.mesh.primitive_cube_add()
-#        cube = bpy.context.active_object
-#        cube.scale = (p1.mp_w, p1.mp_w, p1.mp_h)
-#        cube.location = (p1.bottom_points[i][0], p1.bottom_points[i][1], p1.mp_h)
-#        cube.data.materials.append(blue)
-    
-    
-    
-    
-#    
-#    #generuje obiekty wszerz podstawy
-#    bottom_points = add_bottom_objects(point, scale, height)
-#    
-#    for i in range(obj_nr):    
-#        new_p = [point[0], point[1], 3*height + 2*height*i]
-#        objects.append(create_middle_obj(new_p, scale, height))
-
-#    new_p = [point[0], point[1], 3*height + 2*height*obj_nr]
-#    objects.append(create_top_obj(new_p, scale, height, tower_height))
-
-
-
-#KLASA
-    # do genotypu
-    # tower_width, tower_height - wymiary wież
-    # last_points - umiejscowienie wież
-    # scale, height - szerokość i wysokość kostek
-    # point - środkowy punkt
-    # bottom_points - reszta kostek
-    # tower_objects - obiekty środkowego elementu   
-    
-    
-#        self.towers_points = towers_p
-#        self.tower_w = tower_w
-#        self.tower_h = tower_h
-#        self.main_point = m_point
-#        self.main_point = m_point
-#        self.mp_h = mp_h
-#        self.mp_w = mp_w
-#        self.bottom_points = bottom_points
-#        self.tower_objects = tower_objects
-#        self.points = points
+    bpy.ops.object.select_all(action='DESELECT')
