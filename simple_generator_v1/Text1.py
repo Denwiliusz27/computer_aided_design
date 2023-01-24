@@ -23,7 +23,7 @@ class Castle:
 
 
 class Stack:
-    def __init__ (self):        # Kostruktor
+    def __init__ (self):    # Kostruktor
         self.Stack = []
  
     def Push(self, s):      # Dodawanie elementów
@@ -462,14 +462,9 @@ def create_castle_tower(point, scale, tower_height):
 # generuje główny budynek w zamku
 def generate_main_building(point, size, tower_width, tower_height):
     obj_nr = random.randint(1, 3) 
-#    height = round(tower_height/(obj_nr+3), 2)
-#    scale = round(size/12, 2)
     height = 1.5
     scale = 1.5
     objects = []
-    
-#    if scale > 1.5*height:
-#        scale = 1.5*height 
     
     #generuje obiekt w podstawie
     create_obj_with_doors(point, scale, height)
@@ -1061,8 +1056,8 @@ def create_parent(x, y, red, brown, blue, black, yellow):
     convex_points = create_convex_shell(towers_points)
 
     # ustawiam skalę szerokości i wysokości wież
-    tower_width =  2 #random.randint(1, 3)
-    tower_height = 7 #random.randint(4, 8)
+    tower_width =  2 
+    tower_height = 7 
 
     # usuwam z otoczki punkty leżące zbyt blisko siebie
     last_points = delete_too_narrow_convex_points(convex_points, tower_width)
@@ -1332,9 +1327,9 @@ if __name__ == "__main__":
     mutate(child2)
     generate_castle(child2)
     
-    print("parent 1:", matching_function(p1))
-    print("parent 2:", matching_function(p2))
-    print("child 1:", matching_function(child1))
-    print("child 2:", matching_function(child2))
+    print("parent 1 (left):", matching_function(p1))
+    print("parent 2 (right):", matching_function(p2))
+    print("child 1 (left):", matching_function(child1))
+    print("child 2 (right):", matching_function(child2))
     
     bpy.ops.object.select_all(action='DESELECT')
